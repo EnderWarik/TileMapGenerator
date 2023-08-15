@@ -50,14 +50,14 @@ class PerlinNoise2D(private val seed: Long) {
         val dot11 = grad11.dot(dx1, dy1)
 
         // интерполяуия и сглаживание
-        val weightX = fade(dx0)
-        val weightY = fade(dy0)
+        val weightX = qunticCurve(dx0)
+        val weightY = qunticCurve(dy0)
         val lerp0 = lerp(dot00, dot10, weightX)
         val lerp1 = lerp(dot01, dot11, weightX)
         return lerp(lerp0, lerp1, weightY)
     }
 
-    private fun fade(t: Double) = t * t * t * (t * (t * 6 - 15) + 10)
+    private fun qunticCurve(t: Double) = t * t * t * (t * (t * 6 - 15) + 10)
 
     private fun lerp(a: Double, b: Double, t: Double) = a + t * (b - a)
 
