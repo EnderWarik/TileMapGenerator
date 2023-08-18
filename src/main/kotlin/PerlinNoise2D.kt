@@ -1,3 +1,7 @@
+import java.awt.Image
+import java.awt.image.BufferedImage
+import javax.swing.ImageIcon
+import javax.swing.JOptionPane
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -27,6 +31,7 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
             permutationTable[i] = random.nextInt(permutationTableSize)
         }
     }
+
     fun randomFilling(): PerlinNoise2D
     {
         val random = Random(seed)
@@ -61,6 +66,7 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
         noiseMap = result
         return this
     }
+
     fun getPerlinNoiseNoiseMap(zoom: Int = 2,persistence:Float = 1f): Array<FloatArray>
     {
         val result: Array<FloatArray> = Array(width) { FloatArray(height) }
@@ -76,6 +82,7 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
 
         return result
     }
+
     fun getSmoothNoiseNoiseMap(zoom: Int = 1, persistence:Float = 1f) : Array<FloatArray>
     {
         val result: Array<FloatArray> = Array(width) { FloatArray(height) }
@@ -91,6 +98,7 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
 
         return result
     }
+
     fun getValueSmoothNoiseFrom(x:Float, y:Float,isVertex:Boolean = false): Float
     {
 
@@ -114,7 +122,6 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
 
         return middle
     }
-
 
     fun perlinNoise(zoom: Int = 2): PerlinNoise2D
     {
@@ -224,19 +231,47 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
         return this
     }
 
-
     private fun bilinearInterpolation(leftValue:Float, rightValue:Float, fractionX: Float): Float
     {
         return leftValue + fractionX*(rightValue-leftValue)
     }
+
     fun qunticCurve(t: Float):Float
     {
         return t * t * t * (t * (t * 6 - 15) + 10)
     }
+
     fun gradient(x: Int, y: Int): Gradient
     {
         val index = permutationTable[(permutationTable[x % permutationTableSize] + y) % permutationTableSize]
         return gradients[index % 8]
+    }
+
+    fun showImg(getColor: (x: Float)-> Int)
+    {
+        val img = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val pixels = IntArray(width * height)
+        val name: String = "Noise"
+        for (x in 0 until height) {
+            for (y in 0 until width) {
+                val i = y + x * width
+                pixels[i] = getColor(noiseMap[x][y])
+            }
+        }
+        img.setRGB(0, 0, width, height, pixels, 0, width)
+        JOptionPane.showMessageDialog(
+            null,
+            null,
+            name,
+            JOptionPane.YES_NO_OPTION,
+            ImageIcon(
+                img.getScaledInstance(
+                    width * 1,
+                    height * 1,
+                    Image.SCALE_AREA_AVERAGING
+                )
+            )
+        )
     }
     class Gradient(val x: Float, val y: Float)
     {
