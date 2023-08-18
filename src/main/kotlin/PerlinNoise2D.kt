@@ -1,91 +1,249 @@
-
-import kotlin.math.*
+import kotlin.math.sqrt
 import kotlin.random.Random
 
-class PerlinNoise2D(private val seed: Long) {
+class PerlinNoise2D(private val width: Int, private val height: Int, private val seed: Long, private val permutationTableSize: Int = 256 )
+{
+    private var noiseMap: Array<FloatArray> = Array(width) { FloatArray(height) }
 
-    private val permutationTable = IntArray(256)
+    private val permutationTable: IntArray = IntArray(permutationTableSize)
 
-    init {
-        for (i in 0 until 256) {
-            permutationTable[i] = i
-        }
-        permute(seed, permutationTable)
-    }
-
-    fun permute(seed: Long, array: IntArray) {
-        val random = Random(seed)
-        for (i in array.size - 1 downTo 1) {
-            val j = random.nextInt(i + 1)
-            val temp = array[i]
-            array[i] = array[j]
-            array[j] = temp
-        }
-    }
-
-    // функция вычисляющаяя значение шума в заданной точке
-     fun perlinNoise2D(x: Double, y: Double): Double {
-        // Определение координат узлов сетки
-        val x0 = x.toInt()
-        val x1 = x0 + 1
-        val y0 = y.toInt()
-        val y1 = y0 + 1
-
-        // Вычисление векторов от узлов сетки до заданной точки
-        val dx0 = x - x0
-        val dx1 = x - x1
-        val dy0 = y - y0
-        val dy1 = y - y1
-
-        // Вычисление значений градиентов в каждом узле сетки
-        val grad00 = gradient(x0, y0)
-        val grad01 = gradient(x0, y1)
-        val grad10 = gradient(x1, y0)
-        val grad11 = gradient(x1, y1)
-
-        // Вычисление скалярных произведений векторов и градиентов
-        val dot00 = grad00.dot(dx0, dy0)
-        val dot01 = grad01.dot(dx0, dy1)
-        val dot10 = grad10.dot(dx1, dy0)
-        val dot11 = grad11.dot(dx1, dy1)
-
-        // интерполяуия и сглаживание
-        val weightX = qunticCurve(dx0)
-        val weightY = qunticCurve(dy0)
-        val lerp0 = lerp(dot00, dot10, weightX)
-        val lerp1 = lerp(dot01, dot11, weightX)
-        return lerp(lerp0, lerp1, weightY)
-    }
-
-    private fun qunticCurve(t: Double) = t * t * t * (t * (t * 6 - 15) + 10)
-
-    private fun lerp(a: Double, b: Double, t: Double) = a + t * (b - a)
-
-
-
-    data class Gradient(val x: Double, val y: Double) {
-        fun dot(dx: Double, dy: Double) = x * dx + y * dy
-    }
+    private var isFill: Boolean = false
 
     private val gradients = arrayOf(
-        Gradient(1.0, 0.0),
-        Gradient(-1.0, 0.0),
-        Gradient(0.0, 1.0),
-        Gradient(0.0, -1.0),
-        Gradient(1.0, 1.0).normalize(),
-        Gradient(-1.0, 1.0).normalize(),
-        Gradient(1.0, -1.0).normalize(),
-        Gradient(-1.0, -1.0).normalize()
+        Gradient(1f, 0f),
+        Gradient(-1f, 0f),
+        Gradient(0f, 1f),
+        Gradient(0f, -1f),
+        Gradient(1f, 1f).normalize(),
+        Gradient(-1f, 1f).normalize(),
+        Gradient(1f, -1f).normalize(),
+        Gradient(-1f, -1f).normalize()
     )
+    init
+    {
+        val random = Random(seed)
+        for(i in permutationTable.indices)
+        {
+            permutationTable[i] = random.nextInt(permutationTableSize)
+        }
+    }
+    fun randomFilling(): PerlinNoise2D
+    {
+        val random = Random(seed)
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                noiseMap[i][j] = random.nextFloat()
+            }
+        }
+        isFill = true
+        return this
+    }
 
-    fun gradient(x: Int, y: Int): Gradient {
-        val index = permutationTable[(permutationTable[x % 256] + y) % 256]
+    fun getNoiseMap(): Array<FloatArray>
+    {
+        return noiseMap
+    }
+
+    fun smoothNoise(zoom: Int = 1) : PerlinNoise2D
+    {
+        val result: Array<FloatArray> = Array(width) { FloatArray(height) }
+        if(!isFill)this.randomFilling()
+        val isVertex: Boolean = zoom < 2
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                result [i][j] = this.getValueSmoothNoiseFrom(i.toFloat()/zoom,j.toFloat()/zoom,isVertex)
+            }
+        }
+        noiseMap = result
+        return this
+    }
+    fun getPerlinNoiseNoiseMap(zoom: Int = 2,persistence:Float = 1f): Array<FloatArray>
+    {
+        val result: Array<FloatArray> = Array(width) { FloatArray(height) }
+        if(!isFill)this.randomFilling()
+        val isVertex: Boolean = zoom < 2
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                result[i][j] = this.getValuePerlinNoiseFrom(i.toFloat()/zoom,j.toFloat()/zoom,isVertex) * persistence
+            }
+        }
+
+        return result
+    }
+    fun getSmoothNoiseNoiseMap(zoom: Int = 1, persistence:Float = 1f) : Array<FloatArray>
+    {
+        val result: Array<FloatArray> = Array(width) { FloatArray(height) }
+        if(!isFill)this.randomFilling()
+        val isVertex: Boolean = zoom < 2
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                result [i][j] = this.getValueSmoothNoiseFrom(i.toFloat()/zoom,j.toFloat()/zoom,isVertex) * persistence
+            }
+        }
+
+        return result
+    }
+    fun getValueSmoothNoiseFrom(x:Float, y:Float,isVertex:Boolean = false): Float
+    {
+
+        val x0 = x.toInt()   //левый верхний угол
+        val y0 = y.toInt()  //левый верхний угол
+
+        val x1 = (x0 + 1) % width
+        val y1 = (y0 +  1) % height
+
+        var fractionX = x - x0
+        var fractionY = y - y0
+        if(isVertex)
+        {
+            if(fractionX == 0f) fractionX = 0.5f
+            if(fractionY == 0f) fractionY = 0.5f
+        }
+        val top = bilinearInterpolation(noiseMap[x0][y0],noiseMap[x1][y0],fractionX)
+        val bottom = bilinearInterpolation(noiseMap[x0][y1],noiseMap[x1][y1],fractionX)
+
+        val middle = bilinearInterpolation(top,bottom,fractionY)
+
+        return middle
+    }
+
+
+    fun perlinNoise(zoom: Int = 2): PerlinNoise2D
+    {
+        val result: Array<FloatArray> = Array(width) { FloatArray(height) }
+        if(!isFill)this.randomFilling()
+        val isVertex: Boolean = zoom < 2
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                result[i][j] = this.getValuePerlinNoiseFrom(i.toFloat()/zoom,j.toFloat()/zoom,isVertex)
+            }
+        }
+        noiseMap = result
+        return this
+    }
+
+    fun getValuePerlinNoiseFrom(x:Float, y:Float,isVertex:Boolean = false): Float
+    {
+        val x0: Int = x.toInt()
+        val y0:Int  = y.toInt()
+        val x1 = x0 + 1
+        val y1 = y0 +  1
+        var fractionX: Float = x - x0
+        var fractionY: Float  = y - y0
+        if(isVertex)
+        {
+            if(fractionX == 0f) fractionX = 0.5f
+            if(fractionY == 0f) fractionY = 0.5f
+        }
+        val topLeftGradient: Gradient = gradient(x0, y0)
+        val topRightGradient: Gradient = gradient(x1, y0)
+        val bottomLeftGradient: Gradient = gradient(x0, y1)
+        val bottomRightGradient: Gradient = gradient(x1, y1)
+
+        val topX0 = topLeftGradient.dot(fractionX,   fractionY) // arg: distance to top left
+        val topX1 = topRightGradient.dot(fractionX-1, fractionY) // arg: distance to top right
+        val bottomX0 = bottomLeftGradient.dot(fractionX,   fractionY-1) // arg: distance to bottom left
+        val bottomX1 = bottomRightGradient.dot(fractionX-1, fractionY-1) // arg: distance to bottom right
+
+        fractionX = qunticCurve(fractionX)
+        fractionY = qunticCurve(fractionY)
+
+        val top: Float = bilinearInterpolation(topX0, topX1, fractionX)
+        val bottom = bilinearInterpolation(bottomX0, bottomX1, fractionX)
+        val middle = bilinearInterpolation(top, bottom, fractionY)
+        return middle
+    }
+
+    fun normalize(): PerlinNoise2D
+    {
+        var minValue = noiseMap[0][0]
+        var maxValue =  noiseMap[0][0]
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                val value = noiseMap[i][j]
+                if (value < minValue){
+                    minValue = value
+                } else if (value > maxValue){
+                    maxValue = value
+                }
+            }
+        }
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                noiseMap[i][j] =  (noiseMap[i][j] - minValue) / (maxValue - minValue)
+            }
+        }
+
+        return this
+    }
+
+    fun turbulence(octaves: Float, persistence: Float, zoom: Int = 8): PerlinNoise2D {
+        if(!isFill)this.randomFilling()
+        val result: Array<FloatArray> = Array(width) { FloatArray(height) }
+        val initialOctaves = octaves
+        var octaves = octaves * zoom
+        var persistence = persistence
+        while (octaves >= 1) {
+            result.addMatrix(getPerlinNoiseNoiseMap(octaves.toInt(),persistence))
+            octaves /= 2f
+            persistence*=0.5f
+        }
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                result[i][j] = 128f * result[i][j] / initialOctaves
+            }
+        }
+        noiseMap = result
+        return this
+    }
+    private fun Array<FloatArray>.addMatrix(b: Array<FloatArray>,persistence: Float = 0.5f): Array<FloatArray>
+    {
+        for(i in 0 until width)
+        {
+            for(j in 0 until height)
+            {
+                this[i][j] = this[i][j] + b[i][j] * persistence
+            }
+        }
+        return this
+    }
+
+
+    private fun bilinearInterpolation(leftValue:Float, rightValue:Float, fractionX: Float): Float
+    {
+        return leftValue + fractionX*(rightValue-leftValue)
+    }
+    fun qunticCurve(t: Float):Float
+    {
+        return t * t * t * (t * (t * 6 - 15) + 10)
+    }
+    fun gradient(x: Int, y: Int): Gradient
+    {
+        val index = permutationTable[(permutationTable[x % permutationTableSize] + y) % permutationTableSize]
         return gradients[index % 8]
     }
-
-    fun Gradient.normalize(): Gradient {
-        val length = sqrt(x * x + y * y)
-        return Gradient(x / length, y / length)
+    class Gradient(val x: Float, val y: Float)
+    {
+        fun dot(dx: Float, dy: Float) = x * dx + y * dy
+        fun normalize(): Gradient {
+            val length = sqrt(x * x + y * y)
+            return Gradient(x / length, y / length)
+        }
     }
-
 }
