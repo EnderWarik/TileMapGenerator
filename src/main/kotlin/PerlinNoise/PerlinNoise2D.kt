@@ -1,3 +1,5 @@
+package PerlinNoise
+
 import java.awt.Image
 import java.awt.image.BufferedImage
 import javax.swing.ImageIcon
@@ -198,7 +200,8 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
         return this
     }
 
-    fun turbulence(octaves: Float, persistence: Float, zoom: Int = 8): PerlinNoise2D {
+    fun turbulence(octaves: Float, persistence: Float, zoom: Int = 8): PerlinNoise2D
+    {
         if(!isFill)this.randomFilling()
         val result: Array<FloatArray> = Array(width) { FloatArray(height) }
         val initialOctaves = octaves
@@ -276,7 +279,8 @@ class PerlinNoise2D(private val width: Int, private val height: Int, private val
     class Gradient(val x: Float, val y: Float)
     {
         fun dot(dx: Float, dy: Float) = x * dx + y * dy
-        fun normalize(): Gradient {
+        fun normalize(): Gradient
+        {
             val length = sqrt(x * x + y * y)
             return Gradient(x / length, y / length)
         }

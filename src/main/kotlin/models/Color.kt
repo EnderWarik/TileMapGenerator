@@ -1,4 +1,4 @@
-
+package models
 enum class ColorType
 {
     HEX
